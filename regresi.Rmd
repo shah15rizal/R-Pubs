@@ -1,0 +1,367 @@
+---
+title: "Regresi Linier Berganda (Multivariate Linier Regresi)"
+author: "Shahrizal Muhammad Abdillah"
+output:
+  html_document:
+    df_print: paged
+---
+
+### REGRESI LINIER
+
+Ketika kita ingin melihat pengaruh beberapa peubah-peubah bebas secara bersamaan (simultan) terhadap peubah respon maka model regresi linier merupakan alat yang tepat untuk membantu analisis. Analisis regresi memberikan informasi berupa sebab-akibat antara faktor yang satu dengan faktor lain. Dalam regresi linier berganda peubah-peubah yang bersifat independen atau bebas disebut dengan **prediktor** sedangkan peubah tetap atau respon disebut dengan **target**. Bagaimana dalam membangun model regresi linier berganda pada R ? Berikut adalah langkah-langkah membangun model regresi linier. Data yang digunakan berasal dari `mpg` yang terdapat pada paket `ggplot2`.
+
+```{r setup, include=TRUE}
+library(ggplot2)
+data <- mpg
+str(data)
+```
+
+### EKSPLORASI DATA
+
+Pada dataset tersebut terdapat beberapa peubah numerik, yaitu `year`, `displ`, `cyl`, `cty`, dan `hwy`. Deskripsi dataset secara lengkap bisa diakses dengan menmberikan perintah `?mpg`. Kita dapat memeriksa rataan respon dan statistik deskriptif dari beberapa peubah numerik dan peubah kategorik.
+
+```{r stats, include=TRUE}
+new_data <- data[, c("class", "model", "cyl", "hwy", "trans", "cty")]
+new_data <- transform(new_data, 
+                      class=as.factor(class),
+                      model=as.factor(model),
+                      trans=as.factor(trans))
+str(new_data)
+```
+
+Selanjutnya kita visualisasikan dari beberapa faktor diatas dengan peubah numerik yang ada sebagai berikut.
+
+```{r viz, include=TRUE}
+library(ggplot2)
+library(dplyr)
+library(forcats)
+library(hrbrthemes)
+library(tidyr)
+library(viridis)
+
+new_data$class = with(new_data, reorder(class, hwy, median))
+
+p <- mpg %>%
+  ggplot( aes(x=class, y=hwy, fill=class)) + 
+    geom_violin() +
+    xlab("class") +
+    theme(legend.position="none") +
+    xlab("")
+p
+
+# Menggunakan median
+new_data %>%
+  mutate(class = fct_reorder(class, cty, .fun='median')) %>%
+  ggplot( aes(x=reorder(class, hwy), y=hwy, fill=class)) + 
+    geom_boxplot() +
+    xlab("class") +
+    theme(legend.position="none") +
+    xlab("")
+ 
+# Menggunakan setiap kelompok data tertentu
+new_data %>%
+  mutate(class = fct_reorder(class, cyl, .fun='length' )) %>%
+  ggplot( aes(x=trans, y=cty, fill=class)) + 
+    geom_boxplot() +
+    xlab("class") +
+    theme(legend.position="none") +
+    xlab("") +
+    xlab("")
+
+p2 <- ggplot(data=new_data, aes(x=cyl, group=trans, fill=trans)) +
+    geom_density(adjust=1.5, position="fill") +
+    theme_ipsum()
+p2
+```
+
+Pada dataset ini, kita hanya mengambil beberapa peubah numerik saja, sehingga selain numerik kita drop saja, dan variabel `year` juga kita drop disini. Berikut langkah-langkahnya.
+
+```{r data, include=TRUE}
+new_data <- data[,c("cyl", "displ", "cty", "hwy")]
+str(new_data)
+```
+
+Oke, data baru berhasil kita buat yang terdiri dari `displ`, `cyl`, `cty`, dan `hwy`. Misalnya kita ingin membuat variabel `cyl` sebagai target atau peubah tetap yang akan dianalisis dalam model regresi sedangkan variabel yang lain digunakan sebagai prediktor atau peubah bebasnya. Maka kita bisa membangun model regresi linier nya sebagai berikut.
+
+$$
+cyl = \alpha + \beta_{1}displ + \beta_{2}cty + \beta_{3}hwy + \epsilon
+$$
+
+Dengan demikian, persamaan diatas dapat dituliskan dalam matriks-matriks dalam R sebagai berikut.
+
+$$
+Y = \begin{bmatrix} cyl_1 \\ cyl_2 \\ ... \\ cyl_n \end{bmatrix}
+$$
+
+$$
+X = \begin{bmatrix} 1 & displ_{11} & cty_{12} & hwy_{13} \\ 1 & displ_{21} & cty_{22} & hwy_{23} \\ 1 & ... & ... & ... \\1 & displ_{m1} & cty_{m2} & hwy_{mn}  \end{bmatrix}
+$$
+
+$$
+\beta =  \begin{bmatrix} \beta_1 \\ \beta_2 \\ ... \\ \beta_n \end{bmatrix}
+$$
+
+$$
+\epsilon = \begin{bmatrix} \epsilon_1 \\ \epsilon_2 \\ ... \\ \epsilon_n \end{bmatrix}
+$$
+
+Dimana :
+
+$Y$ = matriks Y berukuran m x 1 atau 234 x 1
+
+$X$ = matriks X berukuran m x (n + 1), dimana pada kolom pertama berisi 1 sebagai intersep.
+
+$\beta$ = matriks parameter berukuran m x 1 yang belum diketahui.
+
+$\epsilon$ = matriks residual berukuran m x 1
+
+Dari persamaan matriks diatas maka didapatkan parameter $\beta$ dan $\epsilon$
+
+$$
+\beta = (X^TX)^{-1}X^TY
+$$
+
+Dengan :
+
+$$
+(X^TX)^{-1} = \frac{1}{n\sum{X}^2_{i} - (\sum{X}_{i})^2} \begin{bmatrix} \sum{X}_{i}^2 &  -\sum{X}_{i}^2 \\ -\sum{X}_{i}^2 & n \end{bmatrix}
+$$
+
+dan
+
+$$
+X^TY = \begin{bmatrix} \sum{Y_i} \\ \sum{X_i}{Y_i} \end{bmatrix}
+$$
+
+Setelah kita tahu susunan matriks-matriks peubah-peubah yang telah ditetapkan beserta parameter-parameter yang hendak kita cari, kita bisa menyusun coding R nya sebagai berikut.
+
+```{r a1, include=TRUE}
+X <- as.matrix(new_data[, 2:4])
+Y <- as.matrix(new_data[,1])
+str(X)
+str(Y)
+head(X)
+head(Y)
+```
+
+Setelah tersusun matriks-matriks diatas, kemudian kita update matriks $X$ dengan memasukkan intersep pada kolomnya.
+
+```{r a2, include=TRUE}
+X <- cbind(1, X)
+head(X)
+```
+
+Kemudian, kita lakukan operasi perkalian matriks (*matrix multiplication*) yaitu :
+
+```{r a3, include=TRUE}
+Beta <- solve(t(X) %*% X) %*% t(X) %*% Y
+print(Beta)
+```
+
+Kita telah mendapatkan parameter $\beta$ dari masing-masing peubah bebas yaitu 0.988, -0.109, dan 0.0328. Dengan demikian, model persaman regresinya dapat ditulis sebagai berikut.
+
+$$
+cyl = 3.532 + 0.988(displ) - 0.109(cty) + 0.0328(hwy)
+$$
+
+Sehingga kita bisa menyimpulkan perubahan ukuran `cyl` disebabkan oleh peningkatan ukuran mesin (`displ`) sebesar 0.988. Begitupula dengan `hwy` namun peubah `cty` justru menurunkan respon silinder sebesar -0.109. Pertanyaan selanjutnya, apakah model tersebut sudah cocok untuk menjelaskan keragaman dari peubah bebas `cyl` ? Tentunya, kita perlu mengevaluasi model yang telah kita bangun dengan analisis ragam dan koefisien determinasi. Kita ingin menguji hipotesis, apakah parameter $\beta$ tidak sama dengan 0 dapat kita susun sebagai berikut.
+
+$H_0 : \beta_1 = \beta_2 = beta_3 = 0$
+
+$H_1 :$ minimal ada satu parameter $\beta$ $\neq$ 0
+
+Berikut langkah-langkah perhitungan analisis ragam dan koefisien determinasinya ($R^2$). Dengan menghitung rataan umum, dan rataan prediksi dari Y.
+
+### EVALUASI MODEL
+
+```{r r1, include=TRUE}
+# Prediksi Y_hat (rata-rata prediksi)
+Y_hat <- X %*% Beta
+
+# Mean Y_mean  (rataan umum)
+Y_mean <- mean(Y)
+print(Y_mean) 
+```
+
+Setelah kita dapatkan rataan umum dan prediksi dari respon Y (`cyl`) maka dapat kita hitung jumlah kuadrat total, jumlah kuadrat regresi dan jumlah kuadrat error nya sebagai berikut.
+
+```{r r2, include=TRUE}
+# Jumlah kuadrat total (SST)
+SST <- sum((Y - Y_mean)^2)
+SSR <- sum((Y_hat - Y_mean)^2)
+SSE <- SST - SSR
+# Menampilkan SST, SSR dan SSE secara bersamaan
+cat(
+  "SST (Jumlah kuadrat total) =", SST, "\n",
+  "SSR (Jumlah kuadrat regresi) =", SSR, "\n",
+  "SSE (Jumlah kuadrat galat) =", SSE, "\n"
+)
+```
+
+Selanjutnya kita dapat menentukan derajat bebas dari komponen-komponen yang ada sebagai berikut.
+
+```{r r3, include=TRUE}
+# Derajat bebas
+n <- nrow(X)
+
+p <- ncol(X) - 1
+df_regresi <- p
+df_error <- n - p - 1
+
+# Rata-rata kuadrat
+MSR <- SSR / df_regresi
+MSE <- SSE / df_error
+
+# Statistik F
+F_value <- MSR / MSE
+
+# Menghitung p-value
+p_value <- pf(F_value, df_regresi, df_error, lower.tail = FALSE)
+
+# Menampilkan hasil
+cat(
+  "Jumlah pengamatan = ", n, "\n",
+  "X (Jumlah prediktor (tidak termasuk intercept) = ", p, "\n",
+  "DB Galat  = ", df_error, "\n",
+  "MSR (Kuadrat Tengah Regresi) =", MSR, "\n",
+  "MSE (Kuadrat Tengah Galat) =", MSE, "\n",
+  "F-Hit =", F_value, "\n",
+  "P-value =", p_value, "\n"
+)
+```
+
+Hasil diatas bisa kita susun ke dalam tabel sidik ragamnya sebagai berikut.
+
+```{r anova1.3, include=TRUE}
+# Membuat tabel ANOVA
+anova_table <- data.frame(
+  Source = c("Regresi", "Galat", "Total"),
+  SS = c(SSR, SSE, SST),
+  df = c(df_regresi, df_error, n),
+  MS = c(MSR, MSE, NA),
+  F = c(F_value, NA, NA),
+  `p-value` = c(p_value, NA, NA)
+)
+# Menampilkan tabel ANOVA
+print(anova_table)
+
+# Menampilkan R
+R <- SSR/SST
+cat("Koefisien determinasi =", R, "\n")
+```
+
+Dari analisis ragam menunjukkan nilai F-hitung sebesar 549.363 dengan Peluang nyata \< 0.0001 sehingga kita dapat nyatakan bahwa parameter $\beta$ berpengaruh nyata terhadap keragaman pada peubah respon. Selain itu, koefisien determinasi yang dihitung dari rasio Jumlah kuadrat Regresi (SSR) dengan Jumlah kuadrat Total (SST) menghasilkan koefisien sebesar 0.8775 sehingga dapat disimpulkan model ini mampu menerangkan keragaman peubah respon sebesar 87.75%.
+
+### DIAGNOSTIK MODEL
+
+Setelah kita mendapatkan hasil analisis ragam dan koefisien determinasi, selanjutnya kita perlu menguji asumsi-asumsi statistik untuk model regresi yang telah dibangun. Salah satu cara yang mudah adalah dengan melihat plot grafis dari asumsi-asumsi statistik diatas melalui cara sebagai berikut.
+
+```{r plot, include=TRUE}
+library(gridExtra)
+library(ggplot2)
+
+# Ringkasan model 
+mod <- lm(cyl ~ displ + cty + hwy, new_data)
+summary(mod)
+
+# Buat QQ plot menggunakan ggplot2
+# Ekstrak residual dari model regresi
+residuals <- resid(mod)
+qq_plot <- ggplot(data = NULL, aes(sample = residuals)) +
+  stat_qq() +
+  stat_qq_line(color = "cyan1") +
+  labs(title = "QQ Plot of Residuals",
+       x = "Theoretical Quantiles",
+       y = "Sample Quantiles") +
+  theme_minimal()
+
+# Tampilkan QQ plot
+print(qq_plot)
+
+# Ekstrak residual dan leverage dari model regresi
+residuals <- resid(mod)
+leverage <- hatvalues(mod)
+
+# Buat data frame untuk plot
+plot_data <- data.frame(Residuals = residuals, Leverage = leverage)
+
+# Buat plot Residuals vs Leverage menggunakan ggplot2
+residuals_vs_leverage_plot <- ggplot(plot_data, aes(x = Leverage, y = Residuals)) +
+  geom_point(size = 2, alpha = 0.7) +
+  geom_smooth(method = "loess", se = FALSE, color = "forestgreen") +  # Garis smooth untuk melihat pola
+  geom_hline(yintercept = 0, linetype = "dashed", color = "blue") +  # Garis horizontal di y = 0
+  labs(title = "Residuals vs Leverage Plot",
+       x = "Leverage",
+       y = "Residuals") +
+  theme_minimal()
+
+# Tampilkan plot residual vs leverage
+print(residuals_vs_leverage_plot)
+
+# Buat data frame dengan sqrt(abs(residual)) dan fitted values
+plot_data <- data.frame(
+  Scaled_Residuals = sqrt(abs(residuals)),
+  Fitted = fitted(mod)
+)
+
+# Plot Scale-Location
+scale_location_plot <- ggplot(plot_data, aes(x = Fitted, y = Scaled_Residuals)) +
+  geom_point(size = 2, alpha = 0.7) +
+  geom_smooth(method = "loess", se = FALSE, color = "blueviolet") +  # Garis trend
+  labs(title = "Scale-Location Plot",
+       x = "Fitted Values",
+       y = "√|Residuals|") +
+  theme_minimal()
+
+# Tampilkan plot Scale-Location
+print(scale_location_plot)
+
+# Buat data frame dengan residual dan fitted values
+plot_data <- data.frame(
+  Residuals = residuals,
+  Fitted = fitted(mod)
+)
+
+# Plot Residuals vs Fitted
+residuals_vs_fitted_plot <- ggplot(plot_data, aes(x = Fitted, y = Residuals)) +
+  geom_point(size = 2, alpha = 0.7) +
+  geom_smooth(method = "loess", se = FALSE, color = "darkorange") +  # Garis trend
+  geom_hline(yintercept = 0, linetype = "dashed", color = "darkviolet") +  # Garis nol
+  labs(title = "Residuals vs Fitted Plot",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme_minimal()
+# Tampilkan plot
+print(residuals_vs_fitted_plot)
+
+# Gabungan keempat plot
+library(gridExtra)
+grid.arrange(residuals_vs_fitted_plot, 
+		 qq_plot,
+		 scale_location_plot,
+		 residuals_vs_leverage_plot, 
+             ncol=2)
+```
+
+Dari hasil pengujian asumsi diatas, dapat diketahui bahwa pengujian asumsi yang terpenuhi adalah kelinieran yang ditunjukkan oleh QQ plot. Pada plot tersebut residual atau sisaan berada pada garis lurus sehingga model ini masih sesuai. Sedangkan asumsi yang lain tidak terpenuhi.
+
+Walaupun demikian kita bisa melihat pola hubungan setiap peubah bebas nya melalui visualisasi yang dikelompokkan dengan `trans`.
+
+```{r viz2, include=TRUE}
+library(ggplot2)
+library(hrbrthemes)
+
+sp1 <- ggplot(mpg, aes(x=hwy, y=displ, size = trans, color=trans)) + 
+    geom_point() +
+    theme_ipsum()
+
+sp2 <- ggplot(mpg, aes(x=cty, y=displ, size=trans, color=trans)) + 
+  geom_point() + theme_ipsum()
+
+sp3 <- ggplot(mpg, aes(x=cty, y=hwy, size=trans, color=trans)) + 
+  geom_point() + theme_ipsum()
+
+sp1
+sp2
+sp3
+```

@@ -1,0 +1,210 @@
+---
+title: "Korelasi Linier"
+author: "Shahrizal Muhammad Abdillah"
+date: "2025-02-20"
+output: html_document
+---
+
+## Korelasi
+
+Korelasi merupakan pola hubungan linier antar peubah numerik yang dapat diketahui tingkat keerannya melalui koefisien $r$. Nilai koefisien $r$ berada pada rentang $-1 \leq r \leq 1$. Nilai $r$ emakin mendekati 1 ataupun -1 maka semakin erat hubungan linier antar peubah numerik tersebut. Sedangkan nilai positif maupun negatif menunjukkan arah hubungan antar peubah numerik tersebut. Nilai $r$ positif berarti nilai rataan antar peubah yang **searah**, sedangkan nilai $r$ yang negatif menunjukkan nilai rataan antar peubah yang **berlawanan**.
+
+## Dataset 
+
+Berikut adalah korelasi yang dapat dilakukan pada dataset `soil` yang tersedia pada paket `agricolae`. Sebelum melakukan analisis korelasi, dapat dilakukan mengeksplorasi data terlebih dahulu.
+
+```{r d1, include=TRUE}
+library(agricolae)
+data(soil)
+data_soil <- soil
+str(data_soil)
+summary(data_soil)
+```
+
+## Statistika Deskripsi
+
+Kita bisa membuat boxplot untuk setiap peubah numerik seperti pada `pH`, `P`, `K`, `sand`, dan `clay` sebagai berikut.
+
+```{r RR, include=TRUE}
+new_data <- data_soil[, c("place", "pH", "P", "K", "sand", "clay")]
+str(new_data)
+library(ggpubr)
+
+# Bar plot (bp)
+bp1 <- ggbarplot(new_data, x = "place", y = "clay",
+          fill = "place",               # change fill color by cyl
+          color = "white",            # Set bar border colors to white
+          palette = "jco",            # jco journal color palett. see ?ggpar
+          sort.val = "asc",           # Sort the value in ascending order
+          sort.by.groups = TRUE,      # Sort inside each group
+          x.text.angle = 90           # Rotate vertically x axis texts
+          ) + font("x.text", size = 8)
+
+bp2 <- ggbarplot(new_data, x = "place", y = "sand",
+          fill = "place",               # change fill color by cyl
+          color = "white",            # Set bar border colors to white
+          palette = "jco",            # jco journal color palett. see ?ggpar
+          sort.val = "asc",           # Sort the value in ascending order
+          sort.by.groups = TRUE,      # Sort inside each group
+          x.text.angle = 90           # Rotate vertically x axis texts
+          ) + font("x.text", size = 8)
+
+bp3 <- ggbarplot(new_data, x = "place", y = "P",
+          fill = "place",               # change fill color by cyl
+          color = "white",            # Set bar border colors to white
+          palette = "jco",            # jco journal color palett. see ?ggpar
+          sort.val = "asc",           # Sort the value in ascending order
+          sort.by.groups = TRUE,      # Sort inside each group
+          x.text.angle = 90           # Rotate vertically x axis texts
+          ) + font("x.text", size = 8)
+
+bp4 <- ggbarplot(new_data, x = "place", y = "pH",
+          fill = "place",               # change fill color by cyl
+          color = "white",            # Set bar border colors to white
+          palette = "jco",            # jco journal color palett. see ?ggpar
+          sort.val = "asc",           # Sort the value in ascending order
+          sort.by.groups = TRUE,      # Sort inside each group
+          x.text.angle = 90           # Rotate vertically x axis texts
+          ) + font("x.text", size = 8)
+
+bp1
+bp2
+bp3
+bp4
+```
+
+## Koefisien r
+
+Selanjutnya kita bisa langsung melakukan korelasi dari seluruh peubah numerik dengan menggunakan heatmap. Berikut coding R nya.
+
+```{r r22, include=TRUE}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(reshape2)
+
+# Fungsi untuk menghitung p-value dari korelasi
+cor.mtest <- function(mat, ...) {
+  mat <- as.matrix(mat)
+  n <- ncol(mat)
+  p.mat <- matrix(NA, n, n)
+  diag(p.mat) <- 0
+  for (i in 1:(n - 1)) {
+    for (j in (i + 1):n) {
+      tmp <- cor.test(mat[, i], mat[, j], ...)
+      p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+    }
+  }
+  colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
+  p.mat
+}
+
+# Pilih hanya kolom numerik
+new <- drop(data_soil[,-1])
+d1_numeric <- new
+
+# Hitung matriks korelasi dan p-value
+cor_matrix <- cor(d1_numeric, use = "complete.obs")
+p_matrix <- cor.mtest(d1_numeric)
+
+# Ubah matriks korelasi dan p-value menjadi format panjang
+cor_df <- melt(cor_matrix)
+p_df <- melt(p_matrix)
+
+# Gabungkan data korelasi dan p-value
+cor_df <- cor_df %>%
+  rename(correlation = value) %>%
+  mutate(p_value = p_df$value)
+
+# Tambahkan kolom signifikansi
+cor_df <- cor_df %>%
+  mutate(signif = case_when(
+    p_value < 0.01 ~ "**",
+    p_value < 0.05 ~ "*",
+    TRUE ~ ""
+  ))
+
+# Gabungkan nilai korelasi dengan tanda signifikan
+cor_df <- cor_df %>%
+  mutate(label = ifelse(Var1 == Var2, "", paste0(round(correlation, 2), signif)))  # Hilangkan diagonal
+
+# Buat heatmap dengan nilai korelasi dan signifikansi
+pr1 <- ggplot(cor_df, aes(x = Var1, y = Var2, fill = correlation)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = label), color = "black", size = 3) +
+  scale_fill_gradient2(low = "red", mid = "darkslategray1", high = "blue", 
+                       midpoint = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Heatmap Korelasi",
+       x = "Variabel X",
+       y = "Variabel Y",
+       fill = "r")
+print(pr1)
+```
+
+```{r pr2, include=TRUE}
+# Fungsi untuk menghitung p-value dari korelasi
+cor.mtest <- function(mat, ...) {
+  mat <- as.matrix(mat)
+  n <- ncol(mat)
+  p.mat <- matrix(NA, n, n)
+  diag(p.mat) <- 0
+  for (i in 1:(n - 1)) {
+    for (j in (i + 1):n) {
+      tmp <- cor.test(mat[, i], mat[, j], ...)
+      p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+    }
+  }
+  colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
+  p.mat
+}
+
+# Pilih hanya kolom numerik
+new <- drop(data_soil[,-1])
+new <- new[,c("pH", "CaCO3", "P", "K", "Mg", "Na", "Al_H", "Cu", "Fe", "Zn")]
+d1_numeric <- new
+
+# Hitung matriks korelasi dan p-value
+cor_matrix <- cor(d1_numeric, use = "complete.obs")
+p_matrix <- cor.mtest(d1_numeric)
+
+# Ubah matriks korelasi dan p-value menjadi format panjang
+cor_df <- melt(cor_matrix)
+p_df <- melt(p_matrix)
+
+# Gabungkan data korelasi dan p-value
+cor_df <- cor_df %>%
+  rename(correlation = value) %>%
+  mutate(p_value = p_df$value)
+
+# Tambahkan kolom signifikansi
+cor_df <- cor_df %>%
+  mutate(signif = case_when(
+    p_value < 0.01 ~ "**",
+    p_value < 0.05 ~ "*",
+    TRUE ~ ""
+  ))
+
+# Gabungkan nilai korelasi dengan tanda signifikan
+cor_df <- cor_df %>%
+  mutate(label = ifelse(Var1 == Var2, "", paste0(round(correlation, 2), signif)))  # Hilangkan diagonal
+
+# Buat heatmap dengan nilai korelasi dan signifikansi
+pr2 <- ggplot(cor_df, aes(x = Var1, y = Var2, fill = correlation)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = label), color = "black", size = 3) +
+  scale_fill_gradient2(low = "blue", mid = "darkslategray3", high = "skyblue", 
+                       midpoint = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Heatmap Korelasi Data soil",
+       x = "Variabel X",
+       y = "Variabel Y",
+       fill = "r")
+print(pr2)
+```
+
+## Kesimpulan
+
+Berdasarkan heatmap yang dibuat menunjukkan koefisien korelasi dari peubah numerik berada pada rentang -0.2 hingga 0.9 untuk seluruh peubah respon. Pada plot kedua, menunjukkan nilai r dari `pH` dengan `Al_H` sebesar -0.65 dan signifikan. Hal ini menunjukkan hubungan linier yang berlawanan dan kuat. Artinya rerata kenaikan `pH` tidak diikuti oleh rerata `Al_H`. Selain itu, nilai r yang positif, kuat dan signifikan ditunjukkan oleh `Zn` dan `Cu` sehingga keduanya memiliki hubungan linier yang searah sehingga rerata kenaikan `Zn` diikuti oleh `Cu`.

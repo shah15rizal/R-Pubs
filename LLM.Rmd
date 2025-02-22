@@ -1,0 +1,138 @@
+---
+title: "FItting Linear Mixed Model dengan metan"
+author: "Shahrizal Muhammad Abdillah"
+output: html_document
+---
+
+## Model Linier Campuran
+
+Model linier campuran atau *linier mixed model* (LMM) adalah model perluasan dari regresi linier yang melibatkan efek tetap dan efek acak pada faktor-faktornya secara bersamaan di dalam model. Hal ini dilakukan karena secara alamiah, variabilitas yang muncul seringkali tidak bisa dijelaskan hanya dengan efek tetap. Selain itu juga, adanya struktur data yang hierarki, seperti perlakuan yang tersarang atau *nested*. Dengan kata lain, data memiliki **tingkatan atau kelompok-kelompok** yang saling terkait, sehingga tidak bisa dijelaskan hanya dengan efek tetap. Contohnya pada percobaan *split plot*, dimana pada petak utama (*main plot*) sering kali dianggap sebagai faktor acak, karena pada petak utama seringkali variasi yang ada muncul.
+
+## Percobaan *MET*
+
+Percobaan *MET* atau *multi-environment trials* merupakan serangkaian percobaan yang melibatkan beberapa percobaan secara bersamaan di beberapa lingkungan yang diuji. Beberapa lingkungan tersebut memiliki perbedaan karakteristik kondisinya seperti iklim, jenis tanah, ketinggian, curah hujan, dll. Percobaan MET ini dilakukan untuk menduga interaksi GxE, yaitu varietas atau genotipe-genotipe uji ditanam di sejumlah lingkungan. Adanya interaksi GxE dapat mengakibatkan performa genotipe di setiap lingkungan berbeda-beda ataupun memiliki daya adaptasi yang rendah. Seiring dengan perubahan kondisi di lingkungan memungkinkan adaptabilitas genotipe menjadi rendah. Dengan mengasumsikan lingkungan sebagai efek acak pada percobaan, maka dalam model campuran ini, genotipe sebagai efek tetap.
+
+## BLUP 
+
+Pendugaan pada pengaruh acak disebut dengan **prediksi**, sedangkan pendugaan pada pengaruh tetap adalah **estimasi**. Dengan demikian prosedur yang berhubungan dengan prediksi disebut **BLUP** (*best linier unbiased prediction*) atau prediksi tak bias.
+
+Dalam model campuran, respons ($y$) dinyatakan sebagai:
+
+$y=Xβ+Zu+ε\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \mathbf{Z} \mathbf{u} + \boldsymbol{\varepsilon}y=Xβ+Zu+ε$
+
+di mana:
+
+-   $Xβ$ = efek tetap (misalnya, rata-rata genotipe)
+
+-   $Zu$ = efek acak, dengan u∼N(0,G)
+
+-   ε∼N(0,R) = error/residual
+
+BLUP memprediksi u dengan menggunakan **kombinasi data yang diamati** (y) dan **informasi dari struktur varians-kovarians efek acak** (G dan R).
+
+Formula BLUP untuk efek acak u:
+
+$\hat u = GZ^TV^{−1}(y−X \hatβ)$
+
+di mana:
+
+-   $V = ZGZ^T + R$ adalah matriks kovariansi total
+
+-   G adalah varians efek acak
+
+-   R adalah varians residual
+
+-   Z adalah matriks desain untuk efek acak
+
+## Paket metan
+
+Pada paket `metan` menyediakan analisis model linier campuran baik pada percobaan *MET* ataupun percobaan tunggal. Metode yang digunakan untuk menampilkan hasil analisis model linier campuran pada percobaan *MET* adalah `gamem_met()`. untuk menampilkan plot residual dari masing-masing efek acak dapat dengan `plot(x, type="re")` dimana x adalah objek dari hasil eksekusi `gamem_met()` dengan `re` sebagai residual. `get_model_data()` digunakan untuk menampilkan beberapa hasil variabel yang telah dihitung dalam model linier campuran.
+
+## Dataset 
+
+Pada dataset yang digunakan pada analisis ini adalah `data("dasilva.maize")` yang tersedia pada paket `agridat`. Dataset ini merupakan percobaan *MET* jagung di texas dengan beberapa peubah respon pengamatan. Peubah respon yang digunakan pada analisis ini adalah `yield`. Untuk lebih jauh mengetahui dataset ini dapat memanggilnya dengan perintah `?dasilva.maize`.
+
+## Analisis 
+
+Berikut adalah penerapan langsung coding R untuk model linier campuran pada dataset `dasilva.maize`.
+
+```{r lmm1, include=TRUE}
+# Set up library dan data 
+library(agridat)
+library(metan)
+data("dasilva.maize")
+dat <- dasilva.maize
+
+# Cek struktur data
+str(dat)
+
+# Fit model LMM
+fit <- gamem_met(dat, env = env, 
+                 gen = gen, 
+                 rep = rep,
+                 random="env",
+                 resp=yield
+                 )
+
+# Tampilkan hasil model
+fit
+```
+
+Pada output `fit` diatas menunjukkan pendekatan untuk menduga efek acak pada model ini adalah REML sedangkan metodenya adalah BLUP. Efek acak yang terbaca adalah `REP(ENV)` merepresentasikan ulangan dalam lingkungan (menunjukkan struktur hierarkis data). `ENV` adalah lingkungan dan `GEN:ENV` adalah interaksi Genotipe dengan Lingkungan.
+
+Output hasil analisis model LMM menunjukkan seluruh komponen acak yang untuk tes rasio *Likelihood* \< 0.0001. Untuk F hitung dari faktor tetap genotipe (`GEN`) sebesar 5.061, dengan DB genotipe sebesar 54 sedangkan DB penyebut sebesar 432. Hasil ini menunjukkan nilai P-value \< 0.05 yang artinya ada perbedaan rataan hasil yang signifikan antar genotipe yang diuji.
+
+Selanjutnya pendugaan ragam pada komponen acak sebesar 6.788 ditunjukkan oleh lingkungan (`ENV`) dengan persentase sebesar 81.53% sedangkan interaksi GxE sebesar 0.3351 dengan persentase sebesar 4.025. Artinya variabilitas lingkungan memberikan pengaruh keragaman tertinggi pada peubah respon hasil (`yield`) yang diukur dibandingkan dengan interaksi GxE.
+
+Hasil output **LMM** yang digunakan untuk mengevaluasi berbagai struktur efek acak menggunakan **likelihood ratio test (LRT)**. Mari kita bahas setiap bagian secara sistematis.
+
+### **Bagian-Bagian Output:**
+
+1.   **model**: Menunjukkan model yang diuji, dengan berbagai efek acak yang dimasukkan.
+
+2.   **npar** (number of parameters): Jumlah parameter yang diestimasi dalam setiap model.
+
+3.   **logLik** (log-likelihood): Ukuran seberapa baik model cocok dengan data. Nilai lebih tinggi (kurang negatif) menunjukkan model yang lebih baik.
+
+4.   **AIC** (Akaike Information Criterion): Digunakan untuk membandingkan model; model dengan AIC lebih kecil lebih disukai.
+
+5.   **LRT** (Likelihood Ratio Test): Uji statistik yang membandingkan model dengan dan tanpa efek acak tertentu.
+
+6.   **Df** (Degrees of Freedom): Derajat kebebasan dalam uji LRT.
+
+7.   **Pr(\>Chisq)**: p-value untuk uji LRT. Nilai kecil (biasanya \<0.05) menunjukkan bahwa efek acak yang diuji berkontribusi signifikan terhadap model.
+
+### **Interpretasi Model**
+
+1.   **Model dasar ()**.Ini adalah model tanpa efek acak, hanya memiliki satu parameter yang diestimasi. Log-likelihood = **-2400.5**, AIC = **4918.9**.
+
+2.   **(1 \| REP:ENV)**. Efek acak dari blok **REP (Replicate) dalam ENV (Environment)**. Menambahkan efek acak **REP dalam ENV** menurunkan log-likelihood menjadi **-2406.8**, meningkatkan AIC menjadi **4929.6**. LRT = **12.681**, p-value = **0.0003694 (**\*, signifikan)\*\* → Efek acak **REP dalam ENV berpengaruh secara signifikan**.
+
+3.   **(1 \| ENV)** → Efek acak dari **Environment (Lokasi/ENV)**. Menambahkan efek acak **ENV** menurunkan log-likelihood menjadi **-2438.0**, meningkatkan AIC menjadi **4991.9**. LRT = **75.014**, p-value = **\<2.2e-16 (**\*, sangat signifikan)\*\* → Efek acak lingkungan memiliki pengaruh yang **sangat signifikan** terhadap model.
+
+4.   **(1 \| GEN:ENV)** → Efek acak dari **Interaksi Genotipe × Environment (GEN:ENV)**. Menambahkan efek acak **GEN × ENV** menurunkan log-likelihood menjadi **-2431.3**, meningkatkan AIC menjadi **4978.7**. LRT = **61.763**, p-value = **3.873e-15 (**\*, sangat signifikan)\*\* → Interaksi **Genotipe × Lingkungan berpengaruh signifikan terhadap model**.
+
+### **Kesimpulan**
+
+-   **Semua efek acak yang diuji (REP:ENV, ENV, GEN:ENV) berkontribusi signifikan terhadap model (p-value \< 0.05).**
+
+-    **Efek lingkungan (ENV) memiliki dampak paling besar** (LRT = 75.014, p-value \< 2.2e-16), menunjukkan bahwa variasi antar lokasi sangat mempengaruhi hasil.
+
+-    **Efek interaksi GEN:ENV juga penting** (LRT = 61.763, p-value = 3.873e-15), menunjukkan bahwa respons genotipe berbeda di berbagai lingkungan.
+
+-    **Efek blok dalam lingkungan (REP:ENV) juga signifikan**, tetapi dampaknya lebih kecil dibanding ENV dan GEN:ENV.
+
+-   Model terbaik bisa ditentukan dengan mempertimbangkan **AIC** yang lebih kecil dan **log-likelihood** yang lebih besar (kurang negatif).
+
+Untuk menampilkan koefisien blup dari efek acak, yang salah satunya direpresentasikan oleh interaksi GxE dapat ditampilkan sebagai berikut.
+
+```{r LMM2, include=TRUE}
+BLUP <- waasb(dat,
+              resp = yield,
+              gen = gen,
+              env = env,
+              rep = rep)
+
+# Plotting BLUP
+plot_blup(BLUP, which = "ge")
+```

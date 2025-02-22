@@ -1,0 +1,186 @@
+---
+title: "ANOVA RKLT"
+author: "Shahrizal Muhammad Abdillah"
+output:
+  html_document:
+    df_print: paged
+  rmdformats::readthedown:
+    self_contained: true
+    thumbnails: true
+    lightbox: true
+    gallery: true
+    number_sections: true
+    lib_dir: libs
+    df_print: paged
+    code_folding: show
+    code_download: true
+    css: "style/style css.css"
+---
+
+# Outline
+
+1.  Penjelasan ANOVA RKLT
+2.  Pembuatan Layout RKLT
+3.  Dataset data_g
+4.  Analisis Data
+
+## ANOVA RKLT
+
+Rancangan kelompok lengkap teracak atau RKLT merupakan salah satu grup dari rancangan lingkungan dalam perancangan percobaan. Rancangan ini digunakan untuk mengendalikan keragaman di lingkungan percobaan yang bersumber dari satu arah atau satu sumber saja, misalnya kesuburan tanah, kemiringan lahan, irigasi dan lain-lain. Untuk penerapan di lapangan, pengacakan pada perlakuan dapat dilakukan melalui coding R dengan paket `FielDHub`.
+
+## 1. Pengacakan
+
+Paket `FieldHub` sangat mudah digunakan untuk pengacakan dan pembuatan plot di lapangan untuk berbagai rancangan percobaan di lapangan. Dengan menggunakan paket ini, plot percobaan RKLT atau RAK dengan contoh perlakuan sebanyak 12 yang diulang sebanyak 3 unit maka dapat disajikan pada plot sebagai berikut.
+
+```{r a1, include=TRUE}
+library(FielDHub)
+perlk <- paste("PRL", 1:12, sep = "")
+perlakuan <- data.frame(list(treatment = perlk))
+
+rklt <- RCBD(reps=3,
+            plotNumber = 010,
+            locationNames = "Kebun Percobaan Regional IV", 
+            data=perlakuan)
+print(rklt)
+plot(rklt)
+```
+
+Pada informasi percobaan RKLT diatas dapat ditampilkan dengan perintah `print(rklt)` yang terasji ID, Location, Plot, REP dan Treatment. Seluruh informasi tersebut bisa kita set up sendiri sesuai dengan percobaan yang sedang dilakukan.
+
+Selain itu, dengan memerintahkan coding `plot(rklt)` akan tersaji hasil layout percobaan di lapangan dengan pengacakannya. Terlihat bahwa ulangan yang digunakan sebanyak 3 unit yang terbagi secara horisontal yang dipisahkan oleh garis hitam tebal. Di setiap ulangan terdapat seluruh perlakuan yang telah diacak. Kemudian di setiap ulangan berukuran 3 x 4 plot dimana di setiap kelompok terdapat 3 perlakuan.
+
+## 2. Model Linier
+
+Pada model linier RKLT terdiri dari dua komponen yaitu faktor perlakuan dan ulangan. Perlakuan adalah faktor yang ingin kita ujicobakan sedangkan ulangan adalah sumber keragaman yang diberlakukan. Selain itu, peubah respon berupa variabel numerik yang diamati, seperti jumlah tanaman, jumlah buah, klorofil, kadar gula, berat buah, dan lain-lain. Adapun model linier nya dapat dituliskan sebagai berikut.
+
+$$
+Y_{ij} = μ + α_i + β_j + ε_{ij}$$
+
+$Y_{ij}$ adalah nilai pengamatan atau respon pada perlakuan ke-i dan ulangan ke-j,
+
+$\mu$ adalah nilai rataan umum,
+
+$\alpha_i$ adalah pengaruh perlakuan ke-i,
+
+$\beta_j$ pengaruh ulangan ke-j, dan
+
+$\epsilon_{ij}$ adalah pengaruh acak pada perlakuan ke-i dan ulangan ke-j
+
+Adapun struktur tabel sidik ragam rancangan acak kelompok dapat disajikan sebagai berikut.
+
+Tabel sidik ragam RKLT
+
+| **SK** | **Derajat bebas** | **Jumlah Kuadrat** | **Kuadrat Tengah** | **F-Hitung** |
+|----|----|----|----|----|
+| Genotipe | g-1 | JKP | JKP/g-1 | KTP/KTE |
+| Ulangan | r-1 | JKU | JKU/r-1 | KTU/KTE |
+| Error | t(r-1) | JKE | JKE/t(r-1) | \- |
+| Total | tr-1 | JKT | \- | \- |
+
+Statistik uji F-hitung Perlakuan adalah KTP/KTG mengikuti sebaran F dengan derajat bebas pembilang sebesar t-1 dan derajat bebas penyebut sebesar (t-1)(r-1). Dengan demikian hipotesis yang dapat diujikan yaitu jika nilai F-hitung lebih besar dari Fα;db1;db2 maka tolak H0 dan jika nilai F-hitung kurang dari Fα;db1;db2 maka terima H0.
+
+## 3. Analisis Data
+
+Dataset yang digunakan pada contoh ini adalah `data_g` yang berasal dari paket `metan`. Dataset tersebut berukuran 39 x 17. Terdapat faktor `GEN` dan `REP` pada kolom 1 dan 2, sedangkan kolom ke-3 dst adalah respon amatan. Kita akan melakukan analisis ragam pada seluruh peubah respon yang diamati sebagai berikut.
+
+```{r a2, include=TRUE}
+library(metan)
+library(agricolae)
+str(data_g)
+
+# Ambil peubah respon
+respon <- names(data_g)[3:ncol(data_g)]
+
+# Looping anova dan perhitungan KK
+for (i in respon){
+	anv <- aov(as.formula(paste(i, " ~ REP + GEN", sep = "")), data = data_g)
+	cat(paste("Hasil Analisis Ragam untuk", i, ":\n"))
+  print(summary(anv))
+  cv_value <- cv.model(anv)
+  cat(paste("Koefisien Keragaman untuk", i, ":", round(cv_value, 2), "%\n"))
+  cat("\n")
+}
+```
+
+Kita juga dapat meringkas hasil ANOVA untuk seluruh peubah respon yang dianalisis diatas dengan membuat dataframe baru sebagai berikut.
+
+```{r tbl, include=TRUE}
+library(metan)
+library(agricolae)
+
+# Ambil peubah respon
+respon <- names(data_g)[3:ncol(data_g)]
+
+# Buat data frame kosong untuk menyimpan hasil
+hasil_anova <- data.frame(Variable = character(),
+                          `DB-GEN` = numeric(),
+                          `DB-Error` = numeric(),
+                          `F-Hitung-GEN` = numeric(),
+                          `P-Value` = character(),
+                          `KK` = numeric(),
+                          stringsAsFactors = FALSE)
+
+# Looping untuk ekstraksi derajat bebas, F-hitung, p-value, dan CV
+for (i in respon){
+  # Hitung ANOVA
+  anv <- aov(as.formula(paste(i, " ~ REP + GEN", sep = "")), data = data_g)
+  anova_summary <- summary(anv)
+
+  # Ekstrak derajat bebas, F-hitung dan p-value untuk faktor GEN dan Error
+  db_gen <- anova_summary[[1]]$Df[2]
+  db_error <- anova_summary[[1]]$Df[3]
+  f_gen <- anova_summary[[1]]$"F value"[2]
+  p_value <- anova_summary[[1]]$"Pr(>F)"[2]
+
+  # Konversi p-value ke simbol signifikansi
+  p_gen <- ifelse(p_value < 0.01, "**", ifelse(p_value < 0.05, "*", 
+                                               ifelse(p_value > 0.05, "ns")))
+
+  # Hitung Koefisien Keragaman (CV)
+  cv_value <- cv.model(anv)
+
+  # Simpan hasil dalam data frame
+  hasil_anova <- rbind(hasil_anova, data.frame(Variable = i,
+                                               `DB-GEN` = db_gen,
+                                               `DB-Error` = db_error,
+                                               `F-Hitung` = round(f_gen, 3),
+                                               `P-Value` = p_gen,
+                                               `KK (%)` = round(cv_value, 2)))
+}
+
+# Tampilkan hasil
+print(hasil_anova)
+```
+
+Berdasarkan analisis ragam, menunjukkan respon amatan `EH`, `EP`, `EL` dan `CD` tidak berpengaruh nyata dengan nilai P value \> 0.05. Dengan demikian kita tidak dapat melakukan uji lanjut sehingga dapat kita drop atau pisahkan dari dataset yang kita miliki. Berikut coding R nya.
+
+```{r a4, include=TRUE}
+str(data_g)
+# Hapus kolom  EH, EP, EL, dan CD dari data_g 
+new_data <- subset(data_g, select = -c(EH, EP, EL, CD))
+# Cek hasilnya
+head(new_data)
+
+# Ambil nama kolom numerik selain REP dan GEN
+variabel_uji <- names(new_data)[!names(new_data) %in% c("REP", "GEN")]
+
+# Buat list untuk menyimpan hasil LSD
+hasil_lsd <- list()
+
+# Looping untuk setiap variabel
+for (var in variabel_uji) {
+  # Pesan proses berjalan
+  cat("Proses LSD untuk variabel:", var, "\n")
+  
+  # ANOVA model (GEN sebagai faktor uji)
+  model <- aov(as.formula(paste(var, "~ REP + GEN")), data = new_data)
+  
+  # Uji lanjut LSD pada faktor GEN
+  lsd_result <- LSD.test(model, "GEN", console = TRUE)
+
+  # Simpan hasil LSD ke dalam list
+  # hasil_lsd[[var]] <- lsd_result$groups
+}
+```
+
+Hasil dari uji LSD 5% menunjukkan terdapat beberapa genotipe yang menunjukkan respon yang lebih baik pada `TKW` yaitu H1 yakni sebesar 368.7677, namun tidak berbeda nyata dengan H7, H8, dan H2. Walaupun demikian, genotipe H1 masih berpotensi untuk dijadikan kandidat terbaik. Sedangkan untuk respon `NKE` genotipe H13 justru menunjukkan respon yang terbaik, yakni sebesar 578.867 walaupun tidak berbeda nyata dengan genotipe H5 dan H12.
