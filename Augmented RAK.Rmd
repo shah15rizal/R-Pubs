@@ -1,0 +1,247 @@
+---
+title: "Analisis data Percobaan Augmented RAK"
+author: "Shahrizal Muhammad Abdillah"
+date: "2025-02-23"
+output: html_document
+---
+
+## Pendahuluan
+
+Percobaan *augmented* merupakan salah satu grup percobaan rancangan kelompok tak lengkap. Rancangan ini terdiri dari beberapa genotipe tertentu yang diulang dalam setiap kelompok, sedangkan gen yang lain tidak. Rancangan ini di lapangan lebih sering dikenal dengan *augmented blok*. Kelebihan rancangan ini daripada rancangan lingkungan (RAK dan RBSL) yaitu mampu mengakomodasi jumlah perlakuan yang lebih besar ke dalam unit-unit percobaan. Pada rancangan *augmented blok* ini terdiri dari dua kelompok genotipe, yaitu genotipe cek (control) dan genotipe new (galur). Genotipe cek berguna untuk mengontrol keragaman di setiap kelompok yang telah diacak dan dialokasikan di dalamnya. Sedangkan genotipe new tidak diberlakukan pengulangan, dan langsung diacak ke dalam setiap unit-unit percobaan.
+
+## Struktur Data
+
+Adapun data pada percobaan *augmented blok* ini terdiri dari :
+
+-   gen, sebagai perlakuan
+
+-   block, sebagai sumber variabilitas lingkungan
+
+-   name, sebagai nama atau kode genotipe keseluruhan
+
+-   tsw, peubah respon.
+
+```{r Data, include=TRUE}
+# Load data
+library(agridat)
+library(agricolae)
+data <- kling.augmented 
+# Menampilkan data frame
+str(data)
+```
+
+## Analisis Ragam
+
+Analisis ragam dalam rancangan *augmented blok* ini dapat disusun menjadi dua bagian, yaitu :
+
+*Treatment adjusted*
+
+![](images/Screenshot%20(44).png)
+
+*blok adjusted*
+
+![](images/Screenshot%20(45).png)
+
+## Analisis data Efek tetap
+
+Analisis data pada *augmented blok* dapat dilakukan dengan 2 model, yaitu model pengaruh tetap dan model pengaruh campuran. Berikut adalah langkah-langkah dalam analisis pengaruh model tetap pada *augmented blok* pada `data` diatas.
+
+Mengubah nilai-nilai pada kolom `gen` yang diulang pada setiap blok sebagai berikut.
+
+```{r setting, include=TRUE}
+input <- within(data, {
+  line <- ifelse(gen %in% c("G89", "G90", "G91"), NA, data$gen)
+  cek <- ifelse(gen %in% c("G89", "G90", "G91"), data$gen, NA)
+  LvsC <- ifelse(gen %in% c("G89", "G90", "G91"), "cek", "line")
+  lines <- ifelse(gen %in% c("G89", "G90", "G91"), 0, data$gen)
+  check <- ifelse(gen %in% c("G89", "G90", "G91"), 1:3, 0)
+})
+str(input)
+head(input)
+```
+
+Setelah menyusun struktur `input` baru dengan membuat kolom-kolom new, check, lines, LvsC, cek dan line dapat ditransformasi data pada kolom-kolom tersebut (kecuali `tsw`) sebagai faktor.
+
+```{r input, include=TRUE}
+# Transformasi data
+input <- transform(input, 
+                   cek=as.factor(cek),
+                   line=as.factor(line),
+                   LvsC=as.factor(LvsC),
+                   check=as.factor(check),
+                   lines=as.factor(lines))
+str(input)
+```
+
+Selanjutnya dapat melakukan analisis ragam dengan perintah `aov()` kemudian megubah hasil luaran nya ke dalam sebuah data frame. Tahap terakhir menampilkan hasil rekapitulasi tabel tersebut.
+
+```{r analisis, include=TRUE}
+# Rekapitulasi ANOVA
+model1 <- aov(tsw ~ block + gen, input)
+model2 <- aov(tsw ~ block + cek:gen, input)
+model3 <- aov(tsw ~ block + lines:LvsC,input) 
+model4 <- aov(tsw ~ gen - block, input) 
+model5 <- aov(tsw ~ cek:gen - block, input) 
+model6 <- aov(tsw ~ block + cek:gen, input) 
+model7 <- aov(tsw ~ line:gen, input) 
+model8 <- aov(tsw ~ LvsC - block, input) 
+
+# Transform ke data frame output F hitung
+anv1 <- as.data.frame(anova(model1))
+anv2 <- as.data.frame(anova(model2))
+anv3 <- as.data.frame(anova(model3))
+anv4 <- as.data.frame(anova(model4))
+anv5 <- as.data.frame(anova(model5))
+anv6 <- as.data.frame(anova(model6))
+anv7 <- as.data.frame(anova(model7))
+anv8 <- as.data.frame(anova(model8))
+
+# Hapus residual atau galat selain model 1
+anova_2 <- anv2[-which(rownames(anv2) == "Residuals"), ]
+anova_3 <- anv3[-which(rownames(anv3) == "Residuals"), ]
+anova_4 <- anv4[-which(rownames(anv4) == "Residuals"), ]
+anova_5 <- anv5[-which(rownames(anv5) == "Residuals"), ]
+anova_6 <- anv6[-which(rownames(anv6) == "Residuals"), ]
+anova_7 <- anv7[-which(rownames(anv7) == "Residuals"), ]
+anova_8 <- anv8[-which(rownames(anv8) == "Residuals"), ]
+
+# Untuk F hitung dan p-value perlu dikoreksi atau tdk perlu digunakan 
+# Ambil JK, db dan KT masing-masing komponen
+anova_2 <- anova_2[, -c(4,5)]
+anova_3 <- anova_3[, -c(4,5)]
+anova_4 <- anova_4[, -c(4,5)]
+anova_5 <- anova_5[, -c(4,5)]
+anova_6 <- anova_6[, -c(4,5)]
+anova_7 <- anova_7[, -c(4,5)]
+anova_8 <- anova_8[, -c(4,5)]
+
+# Membuat tabel ANOVA
+anova_1 <- as.data.frame(anova(model1)) 
+
+# Ekstrak JK setiap komponen
+JKB1 <- anova_1$`Sum Sq`[1]
+JKGen <- anova_1$`Sum Sq`[2]
+JKGalat <- anova_1$`Sum Sq`[3]
+JKB2 <- anova_2$`Sum Sq`[1]
+JKC <- anova_2$`Sum Sq`[2]
+JKGalur1 <- anova_3$`Sum Sq`[2]
+JKGeno <- anova_4$`Sum Sq`[1]
+JKGalur2 <- anova_7$`Sum Sq`[1]
+JKLvsC <- anova_8$`Sum Sq`[1]
+
+# Ekstrak DB Setiap komponen 
+DBB1 <- anova_1$Df[1]
+DBGen <- anova_1$Df[2]
+DBGalat <- anova_1$Df[3]
+DBB2 <- anova_2$Df[1]
+DBC <- anova_2$Df[2]
+DBGalur1 <- anova_3$Df[2]
+DBGeno <- anova_4$Df[1]
+DBLvsC <- anova_8$Df[1]
+DBGalur2 <- anova_7$Df[1]
+
+
+# KT Komponen 
+KTB1 <- anova_1$`Mean Sq`[1]
+KTGen <- anova_1$`Mean Sq`[2]
+KTGalat <- anova_1$`Mean Sq`[3]
+KTB2 <- anova_2$`Mean Sq`[1]
+KTC <- anova_2$`Mean Sq`[2]
+KTGalur1 <- anova_3$`Sum Sq`[2]
+KTGalur2 <- anova_4$`Mean Sq`[1]
+KTLvsC <- anova_8$`Mean Sq`[1]
+KTGeno <- anova_7$`Mean Sq`[1]
+
+# P-value Komponen
+p_value_B1 <- pf(KTB1/KTGalat, DBB1, DBGalat, lower.tail = FALSE)
+p_value_B2 <- pf(KTB2/KTGalat, DBB2, DBGalat, lower.tail = FALSE)
+p_value_Gen <- pf(KTGen/KTGalat, DBGen, DBGalat, lower.tail = FALSE)
+p_value_C <- pf(KTC/KTGalat, KTC, DBGalat, lower.tail = FALSE)
+p_value_Galur1 <- pf(KTGalur1/KTGalat, DBGalur1, DBGalat, lower.tail = 
+                       FALSE)
+p_value_Galur2 <- pf(KTGalur2/KTGalat, DBGalur2, DBGalat, lower.tail = 
+                       FALSE)
+p_value_LvsC <- pf(KTLvsC/KTGalat, KTLvsC, DBGalat, lower.tail = FALSE)
+p_value_Geno <- pf(KTGeno/KTGalat, KTGeno, DBGalat, lower.tail = FALSE)
+
+# Membuat tabel ANOVA
+# komponen nya adalah Blok, gen, C, L(L vs C), Galat
+rekap1 <- data.frame(
+  Source = c("Blok", "genotipe (terkoreksi)", "L(L vs C)", "C",
+             "Galat"),
+  JK = c(JKB1, JKGen, JKGalur1, JKC, JKGalat),
+  db = c(DBB1, DBGen, DBGalur1, DBC, DBGalat),
+  MS = c(KTB1, KTGen, KTGalur1, KTC, KTGalat),
+  F = c(KTB1/KTGalat, KTGen/KTGalat, 
+        KTGalur1/KTGalat, KTC/KTGalat, "-"),
+  `p-value` = c(round(p_value_B1,4), round(p_value_Gen,4),
+                round(p_value_Galur1,4), round(p_value_C,4), "-")
+)
+# Menampilkan tabel ANOVA
+print(rekap1)
+
+# Blok (eliminasi gen), gen, L, C, L vs C, Galat
+rekap2 <- data.frame(
+  Source = c("Blok (terkoreksi)", "genotipe", "L", "C", "L vs C", "Galat"),
+  JK = c(JKB2, JKGeno, JKGalur2, JKC, JKLvsC, JKGalat),
+  db = c(DBB1, DBGeno, DBGalur2, DBC, DBLvsC, DBGalat),
+  MS = c(KTB1, KTGeno, KTGalur2, KTC, KTLvsC, KTGalat),
+  F = c(KTB2/KTGalat, KTGeno/KTGalat,
+        KTGalur2/KTGalat, KTC/KTGalat, 
+        KTLvsC/KTGalat, "-"),
+  `p-value` = c(round(p_value_B2,4), round(p_value_Geno,4), 
+                round(p_value_Galur1,4), round(p_value_C,4), 
+                round(p_value_LvsC,4), "-")
+)
+# Menampilkan tabel ANOVA
+print(rekap2)
+
+```
+
+Berdasarkan analisis ragam, menunjukkan nilai *P-value* genotipe pada kedua pendekatan p-value \< 0.05 sehingga ada genotipe atau galur-galur yang memiliki respon terbaik. Selain itu, pada galur-galur atau kandidat yang diuji menunjukkan p-value \< 0.001 sehingga terdapat perbedaan signifikan antar kandidat.
+
+Untuk melihat rataan respon genotipe dapat dilanjutkan dengan coding di bawah ini.
+
+```{r rataan, include=TRUE}
+library(augmentedRCBD)
+out1 <- augmentedRCBD(input$block, input$gen, input$tsw, 
+                      method.comp = "lsd",
+                      alpha = 0.05, group = TRUE, console = TRUE)
+out1
+```
+
+##  Analisis Data Efek Campuran 
+
+Berbeda dengan analisis data sebelumnya, pada penggunaan efek campuran pada *augmented block* ini setiap block dan chek dianggap sebagai faktor yang mengendalikan sumber keragaman dalam lingkungan. Dengan demikian, blok dan varietas cek dianggap sebagai efek acak, sedangkan kandidat atau galur ditetapkan sebagai efek tetap.
+
+```{r lmm, include=TRUE}
+DF <- kling.augmented
+input <- within(DF, {
+  line <- ifelse(gen %in% c("G89", "G90", "G91"), NA, DF$gen)
+  new <- ifelse(gen %in% c("G89", "G90", "G91"), 0, 1)
+})
+
+input <- within(input, {
+entryc <- ifelse(input$new > 0, 999, DF$gen)		
+})
+str(input)
+head(input)
+
+# Transformasi data
+input <- transform(input, 
+			 line=as.factor(line),
+                   new=as.factor(new),
+                   entryc=as.factor(entryc))
+str(input)
+library(lme4)
+fit2 <- lmer(tsw ~ entryc + (1|block) + (1|gen:new), 
+             REML = TRUE, input)
+summary(fit2)
+ranef(fit2)
+```
+
+Dengan menyusun model campuran dengan paket `lme4` mendapatkan beberapa informasi penting seperti metode REML untuk estimasi parameter. Pada saat *fitting* model LMM dengan mensetting `(1|block)` menandakan blok diletakkan sebagai efek acak dalam model sedangkan`entryc` sebagai efek tetap.
+
+output model `fit2` dengan methode `summary()` menunjukkan nilai-nilai ragam dari faktor-faktor acak berturut-turut sebesar 0.365, 0.014, dan 0.174. Selain itu, hasil parameter efek tetap ditunjukkan oleh intercept, entryc1, entryc2, dan entryc3. Parameter-parameter tersebut merupakan nilai yang merepressentasikan nilai slope dan intersep. Selain itu juga terdapat korelasi-korelasi antara faktor tetap di setiap kelompok yang menunjukkan korelasi yang lemah hingga sedang.
+
+Untuk menampilkan koefisien BLUP dari penduga acak dapat ditampilkan dengan `ranef`.
