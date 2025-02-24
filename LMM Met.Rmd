@@ -1,0 +1,87 @@
+---
+title: "LMM Multienvironment"
+author: "Shahrizal MA"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(metan)
+library(agridat)
+library(lme4)
+library(ggplot2)
+library(dplyr)
+library(sjPlot)
+library(lme4breeding)
+library(sjPlot)
+library(gridExtra)
+library(glmmTMB)
+```
+
+```{r data, include=TRUE}
+data(edwards.oats)
+dat <- edwards.oats
+str(dat)
+dat$year <- as.factor(dat$year)
+head(dat)
+```
+
+```{r model, include=TRUE}
+model <- lmer(yield ~ gen + 
+                (1|block:loc) + 
+                (1|loc:year) + 
+                (1|gen:loc:year), data = dat)
+summary(model)
+print(model, correlation=TRUE)
+```
+
+```{r plot1, include=TRUE}
+# Residual vs Fitted plot
+residuals <- resid(model)
+fitted_values <- fitted(model)
+
+res_fit_plot <- ggplot(data = data.frame(fitted = fitted_values,
+                                         residuals = residuals), 
+                       aes(x = fitted, y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residual vs Fitted Plot", x = "Fitted Values", y = "Residuals") +
+  theme_minimal()
+res_fit_plot
+```
+
+```{r plot2, include=TRUE}
+# Extract random effects from model
+ranef_model <- ranef(model)$loc
+
+# Plotting random effects
+ranef_plot <- ggplot(data = data.frame(location = rownames(ranef_model), 
+                                       effect = ranef_model[,1]), 
+                     aes(x = location, y = effect)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Random Effects of Location By Year", x = "Location x Year", y = "Random Effect") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ranef_plot
+```
+
+```{r plot3, include=TRUE}
+# Predicted values (fitted values)
+predicted_values <- predict(model)
+
+pred_val <- ggplot(dat, aes(x = loc, y = yield)) +
+  geom_point(aes(color = year), size = 3) +
+  geom_line(aes(y = predicted_values, group = gen), 
+            linetype = "dashed", color = "blue") +
+  labs(title = "Observed vs Predicted yield by Genotype", 
+       x = "Location", y = "Number Kernel Ears") +
+  theme_minimal()
+pred_val
+
+```
+
+```{r plot4, include=TRUE}
+plt_mdl11 <- plot_model(model, type = "diag")  # For fixed effects "diag"
+plt_mdl11
+plt_mdl <- plot_model(model, type = "re")  # For random effects
+plt_mdl
+```
