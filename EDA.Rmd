@@ -1,0 +1,116 @@
+---
+title: "Exploratory Data Aanalysis"
+author: "Shahrizal MA"
+output: html_document
+---
+
+## Exploratory Data Analysis
+
+Langkah-langkah dalam mengeksplor dan memeriksa data sebelum membangun sebuah model dengan cara sederhana, yaitu melihat struktur data, menghitung statistika 5 serangkai (statistik deskriptif), dan visualisasi data. Berikut langkah-langkah yang diberlakukan pada data `mtcars` dan `mpg`.
+
+### Struktur Data
+
+```{r strdat, include=TRUE}
+data("mtcars")
+library(ggplot2)
+data("mpg")
+dd <- mtcars
+df <- mpg
+str(dd)
+str(df)
+```
+
+###  Statistika Deskriptif
+
+```{r S5, include=TRUE}
+summary(dd)
+summary(df)
+```
+
+### Visualisasi Data
+
+#### 1. Density Plot
+
+```{r viz1, include=TRUE}
+library(ggplot2)
+library(hrbrthemes)
+
+# data Transmisi dan Engine
+data <- data.frame(
+  var1 = dd$vs,
+  var2 = dd$am)
+
+p1 <- ggplot(data, aes(x=x) ) +
+  # Top
+  geom_density( aes(x = var1, y = ..density..), fill="#69b3a2" ) +
+  geom_label( aes(x=4.5, y=0.25, label="Engine"), color="#69b3a2") +
+  # Bottom
+  geom_density( aes(x = var2, y = -..density..), fill= "#404080") +
+  geom_label( aes(x=4.5, y=-0.25, label="Transmission"), 
+              color="#404080") +
+  theme_ipsum() +
+  xlab("value of x")
+
+p1
+
+# data Transmisi dan Engine
+data <- data.frame(
+  var1 = dd$hp,
+  var2 = dd$cyl)
+
+p2 <- ggplot(data, aes(x=x) ) +
+  # Top
+  geom_density( aes(x = var1, y = ..density..), fill="#19b3a2" ) +
+  geom_label(aes(x=4.5, y=0.25, label="hp"), 
+             color="#19b3a2") +
+  # Bottom
+  geom_density( aes(x = var2, y = -..density..), fill= "#440080") +
+  geom_label( aes(x=4.5, y=-0.25, label="cyl"), 
+              color="#440080") +
+  theme_ipsum() +
+  xlab("value of x")
+p2
+```
+
+#### 2. Violin & Boxplot Chart
+
+```{r, viz2, include=TRUE}
+library(dplyr)
+library(viridis)
+library(forcats)
+library(ggplot2)
+
+mpg %>%
+  mutate(class = fct_reorder(class, hwy, .fun='length' )) %>%
+  ggplot( aes(x=class, y=hwy, fill=class)) + 
+    geom_boxplot() +
+    xlab("class") +
+    theme(legend.position="none") +
+    xlab("") +
+    xlab("")
+
+mpg$class = with(mpg, reorder(class, cty, median))
+
+p2 <- mpg %>%
+  ggplot( aes(x=class, y=cty, fill=class)) + 
+    geom_violin() +
+    xlab("class") +
+    theme(legend.position="none") +
+    xlab("")
+p2
+```
+
+#### 3. Scatter Plot
+
+```{r viz3, include=TRUE}
+ggplot(dd, aes(x=hp, y=drat, alpha=am)) +
+  geom_point(size=6, color="#69b3a2") +
+  ggtitle("Gross horsepower vs Rear axle ratio") +
+  theme_ipsum()
+
+ggplot(df, aes(x=hwy, y=cty, shape=drv, 
+                 alpha=drv, size=drv, color=drv)) +
+  ggtitle("City miles/gallon vs Highwaya miles/gallon by Type") +
+  geom_point() + theme_ipsum()
+
+```
